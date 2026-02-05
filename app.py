@@ -13,18 +13,19 @@
 # 191.162.100.100 [2026-01-21:16:50:13.174982-08:00] "POST /api/checkout HTTP/1.1" 200
 
 from collections import defaultdict
+from pathlib import Path
+from datetime import datetime
 import heapq
 import glob
-from pathlib import Path
 
 class LogProcessor:
 
 	def __init__(self) :
 		self.count = 0
 		self.error_count = 0
-		self.client_error = defaultdict(int)
-		self.server_error = defaultdict(int)
-		self.endpoint_error_count = defaultdict(int)
+		self.client_error = defaultdict(int)			# {Timestamp: count}
+		self.server_error = defaultdict(int)			# {Timestamp: count}
+		self.endpoint_error_count = defaultdict(int)	# {Endpoint: count}
 
 	def read_file(self, file_directory) :
 
@@ -40,21 +41,30 @@ class LogProcessor:
 
 			        return_code = int(return_code)
 
-			        # Parse Timestamp
-			        date, hour, minute, sec, _ = timestamp.strip('[]').split(':')
-			        hour, minute, sec = int(hour), int(minute), int(sec.split('.')[0])
-			        year, month, day = map(int, date.split('-'))
+			        # Parse Timestamp and store as tuple
+			        # date, hour, minute, sec, _ = timestamp.strip('[]').split(':')
+			        # hour, minute, sec = int(hour), int(minute), int(sec.split('.')[0])
+			        # year, month, day = map(int, date.split('-'))
+
+			        # Parse Timestamp and store as datetime
+			        ts = timestamp.strip('[]')
+			        ts_clean = ts.split('.')[0]
+			        dt = datetime.strptime(ts_clean, '%Y-%m-%d:%H:%M:%S')
 
 			        # Check if server/ client error
 			        if 500 <= return_code < 600 :
-			        	self.server_error[(year, month, day, hour, minute, sec)] += 1 
+			        	# self.server_error[(year, month, day, hour, minute, sec)] += 1 
 			        	self.error_count += 1
 			        	self.endpoint_error_count[endpoint] += 1
 
+			        	self.server_error[dt] += 1
+
 			        elif 400 <= return_code < 500 :
-			        	self.client_error[(year, month, day, hour, minute, sec)] += 1 
+			        	# self.client_error[(year, month, day, hour, minute, sec)] += 1 
 			        	self.error_count += 1
 			        	self.endpoint_error_count[endpoint] += 1
+
+			        	self.client_error[dt] += 1
 
 	def get_top_k_endpoints(self, k) :
 		top_k = []
@@ -93,8 +103,10 @@ print('Top 2 endpoints with errors:', top_k_endpts)
 
 # Number client errors between start and endtime
 # Input can't have leading zeros like 01
-start = (2026, 1, 21, 16, 25, 00)
-end = (2026, 1, 21, 16, 35, 00)
+# start = (2026, 1, 21, 16, 25, 00)
+# end = (2026, 1, 21, 16, 35, 00)
+start = datetime(2026, 1, 21, 16, 25, 0)
+end   = datetime(2026, 1, 21, 16, 35, 0)
 client_error_count = lp.get_errors_in_time_range(start, end, lp.client_error)
 print('Number client errors between start and endtime:', client_error_count)
 
